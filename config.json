@@ -1,0 +1,9 @@
+{
+    "server": "SERVERNAME\\SQLEXPRESS",
+    "database": "PACIFICEMISDB",
+    "server_ip": "192.168.1.100",
+    "server_port": "1433",
+    "uid": "sa",
+    "pwd": "password",
+    "user": "system@pacific-emis.org"
+}
