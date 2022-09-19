@@ -127,3 +127,12 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Misc
+# Do not store data
+data/
+# Only commit config.json when there are major changes
+# otherwise ignore
+config.json
+config-rmi.json
+config-fsm.json
