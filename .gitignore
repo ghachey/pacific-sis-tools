@@ -133,6 +133,4 @@ dmypy.json
 data/
 # Only commit config.json when there are major changes
 # otherwise ignore
-config.json
-config-rmi.json
-config-fsm.json
+#config.json

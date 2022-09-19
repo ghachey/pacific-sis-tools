@@ -1,9 +1,19 @@
 {
-    "server": "SERVERNAME\\SQLEXPRESS",
-    "database": "PACIFICEMISDB",
-    "server_ip": "192.168.1.100",
-    "server_port": "1433",
-    "uid": "sa",
-    "pwd": "password",
-    "user": "system@pacific-emis.org"
+    "country": "COUNTRYCODE",
+    "emis_server": "MSSQLSERVERSTRING",
+    "emis_database": "PACIFICEMISDB",
+    "emis_server_ip": "192.168.1.100",
+    "emis_server_port": "1433",
+    "emis_uid": "sa",
+    "emis_pwd": "password",
+    "emis_user": "system@pacific-emis.org",
+    "sis_host": "192.168.1.100",
+    "sis_database": "opensisdb",
+    "sis_server_port": "3306",
+    "sis_user": "root",
+    "sis_pwd": "password",
+    "sis_tenant_id": "GUID",
+    "sis_user_guid": "GUID",
+    "sis_field_name": "ethnicity",
+    "sis_lov_name": "Ethnicity"
 }
