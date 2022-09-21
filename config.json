@@ -14,6 +14,5 @@
     "sis_pwd": "password",
     "sis_tenant_id": "GUID",
     "sis_user_guid": "GUID",
-    "sis_field_name": "ethnicity",
-    "sis_lov_name": "Ethnicity"
+    "emis_lookup": "ethnicity"
 }
