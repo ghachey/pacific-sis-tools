@@ -15,8 +15,8 @@
     "sis_tenant_id": "GUID",
     "sis_user_guid": "GUID",
     "sis_country": "Country Full Name",
-    "sis_template_school_id": INT,
     "sis_export_data_to_excel": false,
     "sis_load_data_to_sql": false,
-    "emis_lookup": "ethnicity"
+    "emis_lookup": "ethnicity",
+    "emis_school_year": 2023
 }

@@ -18,6 +18,8 @@
 # This notebook provides some tools for better integration between the        #
 # Pacific EMIS and Pacific SIS. In particular useful tools to manage syncing  #
 # data of schools                                                             #
+# This notebook produces UPDATE statements to update some schools in SIS      #
+# based on data from EMIS                                                     #
 ###############################################################################
 
 # Core stuff
@@ -53,16 +55,13 @@ sis_database = config['sis_database']
 sis_tenant_id = config['sis_tenant_id']
 sis_user_guid = config['sis_user_guid']
 sis_country = config['sis_country']
-#sis_field_name = config['sis_field_name']
-#sis_lov_name = config['sis_lov_name']
-#sis_column_name = config['sis_column_name']
 
 # Config
 country = config['country']
 datetime = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 # MS SQL Server connection
-ms_connection_string = """
+mssql_connection_string = """
     Driver={{ODBC Driver 17 for SQL Server}};
     Server={},{};
     Database={};
@@ -71,8 +70,8 @@ ms_connection_string = """
     autocommit=True
     """.format(config['emis_server_ip'], config['emis_server_port'], config['emis_database'], config['emis_uid'], config['emis_pwd'])
 
-ms_connection_url = URL.create("mssql+pyodbc", query={"odbc_connect": ms_connection_string})
-ms_engine = create_engine(ms_connection_url)
+mssql_connection_url = URL.create("mssql+pyodbc", query={"odbc_connect": mssql_connection_string})
+mssql_engine = create_engine(mssql_connection_url)
 
 # MySQL Connection
 mysql_connection_string = "mysql+mysqlconnector://"+config['sis_user']+":"+config['sis_pwd']+"@"+config['sis_host']+":"+config['sis_server_port']+"/"+config['sis_database']
@@ -154,7 +153,7 @@ query_toilet_types = """SELECT [ttypName] AS [codeCode], [ttypName] AS [codeDesc
 query_languages = """SELECT [langCode] AS [codeCode], [langName] AS [codeDescription], 0 AS [codeSeq] FROM [dbo].[lkpLanguage]"""
 query_school_classifications = """SELECT [codeCode] AS [codeCode], [codeDescription] AS [codeDescription], 0 AS [codeSeq] FROM [dbo].[lkpAuthorityGovt]"""
       
-with ms_engine.begin() as conn:
+with mssql_engine.begin() as conn:
     #df = pd.read_sql_query(sa.text("SELECT 'thing' as txt"), conn)
     df_schools_emis = pd.read_sql_query(sa.text(query_schools), conn)
 
@@ -245,8 +244,8 @@ schools_sis_to_update[:3]
 
 # %%
 # Using the data prepared in previous cell produce the actual SQL script that will UPDATE everything to be in sync.
-
-filename = 'data/' + country + '/schools-emis-to-sis-sync-script.sql'
+print("Generating the updates scripts to sync EMIS schools to SIS schools")
+filename = 'data/' + country + '/schools-emis-to-sis-update-script.sql'
 file = open(filename, "w") 
 
 file.write("USE {};\n\n".format(sis_database))
