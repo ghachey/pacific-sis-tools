@@ -17,7 +17,17 @@
 ###############################################################################
 # This notebook provides some tools for better integration between the        #
 # Pacific EMIS and Pacific SIS. It does the following                         #
-#   - Sync lookup values from Pacific EMIS to Pacific SIS deployments         #
+# Sync lookup values from Pacific EMIS to Pacific SIS deployments             #
+#                                                                             #
+# WARNING the the emis_lookups need to be run individually one by one in the  #
+# following order to get the IDs correct                                      #
+# 1) Choose a emis_lookup
+# 2) Run all cells to generate the SQL script
+# 3) Execute the SQL script on the DB first with ROLLBACK and when working COMMIT
+# 4) Go back to step 1)
+#
+# TODO better to just run it for all lookups? But doing this requires loading them before
+# producing next one and requires a bit of additional work.
 ###############################################################################
 
 # Core stuff
@@ -52,16 +62,13 @@ emis_lookup = config['emis_lookup']
 sis_database = config['sis_database']
 sis_tenant_id = config['sis_tenant_id']
 sis_user_guid = config['sis_user_guid']
-#sis_field_name = config['sis_field_name']
-#sis_lov_name = config['sis_lov_name']
-#sis_column_name = config['sis_column_name']
 
 # Config
 country = config['country']
 datetime = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 # MS SQL Server connection
-ms_connection_string = """
+mssql_connection_string = """
     Driver={{ODBC Driver 17 for SQL Server}};
     Server={},{};
     Database={};
@@ -70,12 +77,24 @@ ms_connection_string = """
     autocommit=True
     """.format(config['emis_server_ip'], config['emis_server_port'], config['emis_database'], config['emis_uid'], config['emis_pwd'])
 
-ms_connection_url = URL.create("mssql+pyodbc", query={"odbc_connect": ms_connection_string})
-engine = create_engine(ms_connection_url)
+mssql_connection_url = URL.create("mssql+pyodbc", query={"odbc_connect": mssql_connection_string})
+mssql_engine = create_engine(mssql_connection_url)
 
 # MySQL Connection
 mysql_connection_string = "mysql+mysqlconnector://"+config['sis_user']+":"+config['sis_pwd']+"@"+config['sis_host']+":"+config['sis_server_port']+"/"+config['sis_database']
 mysql_engine = create_engine(mysql_connection_string)
+
+# %%
+emis_lookups = {
+    'ethnicity': {'sis_field_name': "ethnicity", 'sis_lov_name': "Ethnicity", 'sis_column_name': "ethnicity"},
+    'race': {'sis_field_name': "race", 'sis_lov_name': "Race", 'sis_column_name': "race"},
+    'school level': {'sis_field_name': "schoolLevel", 'sis_lov_name': "School Level", 'sis_column_name': "school_level"},
+    'school classification': {'sis_field_name': "schoolClassification", 'sis_lov_name': "School Classification", 'sis_column_name': "school_classification"},
+    'female toilet type': {'sis_field_name': "femaleToiletType", 'sis_lov_name': "Female Toilet Type", 'sis_column_name': "female_toilet_type"},
+    'male toilet type': {'sis_field_name': "maleToiletType", 'sis_lov_name': "Male Toilet Type", 'sis_column_name': "male_toilet_type"},
+    'common toilet type': {'sis_field_name': "commonToiletType", 'sis_lov_name': "Common Toilet Type", 'sis_column_name': "comon_toilet_type"},
+    #'languages': {'sis_field_name': "language", 'sis_lov_name': "Languages", 'sis_column_name': "longuage"}, # Not supported (or currently needed) as it sits in a single table easily editable
+}
 
 # Choose the desired lookup to create a sync script for
 if emis_lookup == 'ethnicity':
@@ -106,6 +125,8 @@ elif emis_lookup == 'common toilet type':
     sis_field_name = "commonToiletType"
     sis_lov_name = "Common Toilet Type"
     sis_column_name = "comon_toilet_type"
+elif emis_lookup == 'all':
+    emis_lookups
 else:
     pass
 
@@ -142,7 +163,7 @@ query_toilet_types = """SELECT [ttypName] AS [codeCode], [ttypName] AS [codeDesc
 query_languages = """SELECT [langCode] AS [codeCode], [langName] AS [codeDescription], 0 AS [codeSeq] FROM [dbo].[lkpLanguage]"""
 query_school_classifications = """SELECT [codeCode] AS [codeCode], [codeDescription] AS [codeDescription], 0 AS [codeSeq] FROM [dbo].[lkpAuthorityGovt]"""
  
-with engine.begin() as conn:
+with mssql_engine.begin() as conn:
     df_schools_x = pd.read_sql_query(sa.text(query_schools), conn)
     display(df_schools_x.head(3))
 
@@ -218,10 +239,10 @@ query_dpdown_valuelist = """
 SELECT * FROM {}.dpdown_valuelist WHERE lov_name = '{}';
 """.format(sis_database, sis_lov_name)
 
-df_custom_fields = pd.read_sql(query_custom_fields, mysql_conn)
+df_custom_fields = pd.read_sql(query_custom_fields, mysql_engine)
 display(df_custom_fields.head(3))
 
-df_dpdown_valuelist = pd.read_sql(query_dpdown_valuelist, mysql_conn)
+df_dpdown_valuelist = pd.read_sql(query_dpdown_valuelist, mysql_engine)
 display(df_dpdown_valuelist.head(3))
 
 # %%
@@ -235,11 +256,11 @@ SELECT * FROM {}.school_detail;
 """.format(sis_database)
 
 print("SIS school_master")
-df_school_master = pd.read_sql(query_school_master, mysql_conn)
+df_school_master = pd.read_sql(query_school_master, mysql_engine)
 display(df_school_master.head(3))
 
 print("SIS school_detail")
-df_school_detail = pd.read_sql(query_school_detail, mysql_conn)
+df_school_detail = pd.read_sql(query_school_detail, mysql_engine)
 display(df_school_detail.head(3))
 
 query_staff_master = """
@@ -247,7 +268,7 @@ SELECT * FROM {}.staff_master;
 """.format(sis_database)
 
 print("SIS staff_master")
-df_staff_master = pd.read_sql(query_staff_master, mysql_conn)
+df_staff_master = pd.read_sql(query_staff_master, mysql_engine)
 display(df_staff_master.head(3))
 
 query_student_master = """
@@ -255,7 +276,7 @@ SELECT * FROM {}.student_master;
 """.format(sis_database)
 
 print("SIS student_master")
-df_student_master = pd.read_sql(query_student_master, mysql_conn)
+df_student_master = pd.read_sql(query_student_master, mysql_engine)
 display(df_student_master.head(3))
 
 # %%
@@ -339,6 +360,7 @@ lookup_values = {
 }
 
 # %%
+print("Generating inserts script for lookup {}".format(emis_lookup))
 # List of existing ids used in dpdown_valuelist. Let's collect for re-use
 df_dpdown_valuelist.dropna(subset=['school_id'], inplace=True) # not default values with no school_id though
 dpdown_valuelist_ids = list(df_dpdown_valuelist['id'].values)
@@ -423,7 +445,8 @@ file.write("\nROLLBACK;")
 file.close()
 
 # %%
-# Close database connections
-mysql_conn.close()
+# Close database connection
+print("Closing the MySQL connection engine")
+mysql_engine.dispose()
 
 # %%

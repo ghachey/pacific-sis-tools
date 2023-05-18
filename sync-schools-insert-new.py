@@ -17,9 +17,11 @@
 ###############################################################################
 # This notebook provides some tools for better integration between the        #
 # Pacific EMIS and Pacific SIS. In particular useful tools to manage syncing  #
-# data of schools, or more specifically pre-loading the SIS with all the      #
-# schools in the EMIS                                                         #
-# The approach taken here is a more direct DataFrame to SQL DB                #
+# data of schools.                                                            #
+# This notebook can be used for pre-loading the SIS with all the schools in   #
+# the EMIS. The approach taken here is a more direct DataFrame to SQL DB      #
+# IMPORTANT: This notebook has a dependent variable from the notebook         #
+# sync-schools-update-existing.ipynb so that one must be run first            #
 ###############################################################################
 
 # Core stuff
@@ -56,19 +58,15 @@ sis_database = config['sis_database']
 sis_tenant_id = config['sis_tenant_id']
 sis_user_guid = config['sis_user_guid']
 sis_country = config['sis_country']
-sis_template_school_id = config['sis_template_school_id']
 sis_export_data_to_excel = config['sis_export_data_to_excel']
 sis_load_data_to_sql = config['sis_load_data_to_sql']
-#sis_field_name = config['sis_field_name']
-#sis_lov_name = config['sis_lov_name']
-#sis_column_name = config['sis_column_name']
 
 # Config
 country = config['country']
 datetime = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 # MS SQL Server connection
-ms_connection_string = """
+mssql_connection_string = """
     Driver={{ODBC Driver 17 for SQL Server}};
     Server={},{};
     Database={};
@@ -77,100 +75,123 @@ ms_connection_string = """
     autocommit=True
     """.format(config['emis_server_ip'], config['emis_server_port'], config['emis_database'], config['emis_uid'], config['emis_pwd'])
 
-ms_connection_url = URL.create("mssql+pyodbc", query={"odbc_connect": ms_connection_string})
-ms_engine = create_engine(ms_connection_url)
+mssql_connection_url = URL.create("mssql+pyodbc", query={"odbc_connect": mssql_connection_string})
+mssql_engine = create_engine(mssql_connection_url)
 
 # MySQL Connection
 mysql_connection_string = "mysql+mysqlconnector://"+config['sis_user']+":"+config['sis_pwd']+"@"+config['sis_host']+":"+config['sis_server_port']+"/"+config['sis_database']
 mysql_engine = create_engine(mysql_connection_string)
 
 # %%
-# Here we create "template" DataFrames for all the tables of interest.
-# those will later on be populated with data and loaded directly inth the SQL DB
+# First get the next school_id and school_detail id to be used.
+query_school_master_ids = """
+SELECT MAX(`school_id`) as last_school_id
+FROM `school_master`
+ORDER BY `school_id`;
+"""
+
+query_school_detail_ids = """
+SELECT MAX(`id`) as last_school_detail_id
+FROM `school_detail`
+ORDER BY `id`;
+"""
+
+with mysql_engine.begin() as conn:
+    #df_school_calendars = pd.read_sql_query(sa.text(query_school_calendars), conn)
+    result1 = conn.execute(sa.text(query_school_master_ids))
+    result2 = conn.execute(sa.text(query_school_detail_ids))
+    template_school_id = result1.mappings().first()['last_school_id']
+    next_school_id = template_school_id+1
+    next_school_detail_id = result2.mappings().first()['last_school_detail_id']+1
+    print("Next school_id should be {}".format(next_school_id))
+    print("Next school_detail id should be {}".format(next_school_detail_id))
+
+# Here we create "template" DataFrames for all the tables of interest.0
+# those will later on be populated with data and loaded directly into the SQL DB
 
 query_release_number = """
 SELECT `release_number`, `school_id`, `tenant_id`, `created_by`, `created_on`, `release_date`, `updated_by`, `updated_on` 
 FROM release_number
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 query_school_master = """
 SELECT `school_id`, `tenant_id`, `alternate_name`, `city`, `country`, `county`, `created_by`, `created_on`, `current_period_ends`, `district`, `division`, `features`, `latitude`, `longitude`, `max_api_checks`, `plan_id`, `school_alt_id`, `school_classification`, `school_district_id`, `school_guid`, `school_internal_id`, `school_level`, `school_name`, `school_state_id`, `state`, `street_address_1`, `street_address_2`, `updated_by`, `updated_on`, `zip`
 FROM school_master
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 query_block = """
 SELECT `block_id`, `school_id`, `tenant_id`, `academic_year`, `block_sort_order`, `block_title`, `created_by`, `created_on`, `full_day_minutes`, `half_day_minutes`, `rollover_id`, `updated_by`, `updated_on`
 FROM `block`
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 query_dpdown_valuelist = """
 SELECT `id`, `created_by`, `created_on`, `lov_code`, `lov_column_value`, `lov_name`, `school_id`, `sort_order`, `tenant_id`, `updated_by`, `updated_on`
 FROM `dpdown_valuelist`
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 query_fields_category = """
 SELECT `category_id`, `school_id`, `tenant_id`, `created_by`, `created_on`, `hide`, `is_system_category`, `is_system_wide_category`, `module`, `required`, `search`, `sort_order`, `title`, `updated_by`, `updated_on`
 FROM `fields_category`
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 query_membership = """
 SELECT `membership_id`, `school_id`, `tenant_id`, `created_by`, `created_on`, `description`, `is_active`, `is_superadmin`, `is_system`, `profile`, `profile_type`, `updated_by`, `updated_on`
 FROM `membership`
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 query_permission_group = """
 SELECT `permission_group_id`, `school_id`, `tenant_id`, `active`, `badgeType`, `badgeValue`, `created_by`, `created_on`, `icon`, `icon_type`, `is_active`, `is_system`, `path`, `permission_group_name`, `short_name`, `sort_order`, `title`, `type`, `updated_by`, `updated_on`
 FROM `permission_group`
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 query_school_calendars = """
 SELECT `calender_id`, `school_id`, `tenant_id`, `academic_year`, `created_by`, `created_on`, `days`, `default_calender`, `end_date`, `rollover_id`, `session_calendar`, `start_date`, `title`, `updated_by`, `updated_on`, `visible_to_membership_id`
 FROM `school_calendars`
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 query_school_detail = """
 SELECT `id`, `affiliation`, `associations`, `common_toilet_accessibility`, `comon_toilet_type`, `created_by`, `created_on`, `currently_available`, `date_school_closed`, `date_school_opened`, `electricity`, `email`, `facebook`, `fax`, `female_toilet_accessibility`, `female_toilet_type`, `gender`, `handwashing_available`, `highest_grade_level`, `hygene_education`, `instagram`, `internet`, `linkedin`, `locale`, `lowest_grade_level`, `main_source_of_drinking_water`, `male_toilet_accessibility`, `male_toilet_type`, `name_of_assistant_principal`, `name_of_principal`, `running_water`, `school_id`, `school_logo`, `school_thumbnail_logo`, `soap_and_water_available`, `status`, `telephone`, `tenant_id`, `total_common_toilets`, `total_common_toilets_usable`, `total_female_toilets`, `total_female_toilets_usable`, `total_male_toilets`, `total_male_toilets_usable`, `twitter`, `updated_by`, `updated_on`, `website`, `youtube`
 FROM `school_detail`
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 query_student_enrollment_code = """
 SELECT `enrollment_code`, `school_id`, `tenant_id`, `academic_year`, `created_by`, `created_on`, `rollover_id`, `short_name`, `sort_order`, `title`, `type`, `updated_by`, `updated_on`
 FROM `student_enrollment_code`
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 query_custom_fields = """
 SELECT `category_id`, `field_id`, `school_id`, `tenant_id`, `created_by`, `created_on`, `default_selection`, `field_name`, `hide`, `is_system_wide_field`, `module`, `required`, `search`, `select_options`, `sort_order`, `system_field`, `title`, `type`, `updated_by`, `updated_on`
 FROM `custom_fields`
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 query_permission_category = """
 SELECT `permission_category_id`, `school_id`, `tenant_id`, `created_by`, `created_on`, `enable_add`, `enable_delete`, `enable_edit`, `enable_view`, `is_active`, `path`, `permission_category_name`, `permission_group_id`, `short_code`, `sort_order`, `title`, `type`, `updated_by`, `updated_on`
 FROM `permission_category`
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 query_permission_subcategory = """
 SELECT `permission_subcategory_id`, `school_id`, `tenant_id`, `created_by`, `created_on`, `enable_add`, `enable_delete`, `enable_edit`, `enable_view`, `is_active`, `is_system`, `path`, `permission_category_id`, `permission_group_id`, `permission_subcategory_name`, `short_code`, `sort_order`, `title`, `type`, `updated_by`, `updated_on`
 FROM `permission_subcategory`
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 query_role_permission = """
 SELECT `role_permission_id`, `school_id`, `tenant_id`, `can_add`, `can_delete`, `can_edit`, `can_view`, `created_by`, `created_on`, `membership_id`, `permission_category_id`, `permission_group_id`, `permission_subcategory_id`, `updated_by`, `updated_on`
 FROM `role_permission`
 WHERE tenant_id = '{}' AND school_id = {};
-""".format(sis_tenant_id, sis_template_school_id)
+""".format(sis_tenant_id, template_school_id)
 
 
 templates = {
@@ -199,28 +220,6 @@ with mysql_engine.begin() as conn:
 
 # %%
 # Prepare all the new schools missing from SIS to be loaded from EMIS
-
-# First get the next school_id and school_detail id to be used.
-query_school_master_ids = """
-SELECT MAX(`school_id`) as last_school_id
-FROM `school_master`
-ORDER BY `school_id`;
-"""
-
-query_school_detail_ids = """
-SELECT MAX(`id`) as last_school_detail_id
-FROM `school_detail`
-ORDER BY `id`;
-"""
-
-with mysql_engine.begin() as conn:
-    #df_school_calendars = pd.read_sql_query(sa.text(query_school_calendars), conn)
-    result1 = conn.execute(sa.text(query_school_master_ids))
-    result2 = conn.execute(sa.text(query_school_detail_ids))
-    next_school_id = result1.mappings().first()['last_school_id']+1
-    next_school_detail_id = result2.mappings().first()['last_school_detail_id']+1
-    print("Next school_id should be {}".format(next_school_id))
-    print("Next school_detail id should be {}".format(next_school_detail_id))
     
 # Retrieve our list of schools missing from SIS    
 # %store -r df_schools_sis_to_insert
@@ -243,20 +242,20 @@ for k,template in templates.items():
 
 # %%
 # One possible implementation for school_master...
-school_ids = df_schools_sis_to_insert['school_id'].values
+#school_ids = df_schools_sis_to_insert['school_id'].values
 
-school_masters = []
-df_school_master_all = None
+#school_masters = []
+#df_school_master_all = None
 
-for school_id in school_ids:
-    #print("Preparing school {}".format(school_id))
-    df = templates['school_master']['df'].copy()
-    df['school_id'] = school_id    
-    school_masters.append(df)
+#for school_id in school_ids:
+#    #print("Preparing school {}".format(school_id))
+#    df = templates['school_master']['df'].copy()
+#    df['school_id'] = school_id    
+#    school_masters.append(df)
 
-if len(school_masters) > 0:
-    df_school_master_all = pd.concat(school_masters, ignore_index=True)
-    display(df_school_master_all)
+#if len(school_masters) > 0:
+#    df_school_master_all = pd.concat(school_masters, ignore_index=True)
+#    display(df_school_master_all)
 
 # %%
 # Another possible implementation for school_master...
@@ -264,7 +263,7 @@ school_ids = df_schools_sis_to_insert['school_id'].values
 schools_num = len(school_ids)
 print("Number of new schools to insert: {}".format(schools_num))
 
-if df_school_master_all:
+if not df_school_master_all.empty:
     ###############################################################################
     # Prepare the school_master DataFrame for all the schools using the template DataFrame
     ###############################################################################
