@@ -126,13 +126,6 @@ with mysql_engine.begin() as conn:
         display(template['df'].head(3))
 
 # %%
-type(df_schools_with_no_attendace_sis)
-s_school_ids = df_schools_with_no_attendace_sis['school_id'].repeat(5)
-df = pd.DataFrame(data=df_schools_with_no_attendace_sis['school_id'].repeat(5))
-df.reset_index(drop=True, inplace=True)
-df
-
-# %%
 school_ids = df_schools_with_no_attendace_sis['school_id'].values
 schools_num = len(school_ids)
 print("Number of schools without attendance configuration: {}".format(schools_num))
