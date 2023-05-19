@@ -191,6 +191,6 @@ if sis_load_data_to_sql == True:
         print("Loading attendance_code with all final data")
         df_attendance_code_all.to_sql('attendance_code', con=conn, index=False, if_exists='append')
         
-    print("All student imported successfully")
+    print("All attendance configuration imported successfully")
 else:
     print("Not loading the data into SQL")
