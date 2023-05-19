@@ -82,6 +82,8 @@ mssql_engine = create_engine(mssql_connection_url)
 mysql_connection_string = "mysql+mysqlconnector://"+config['sis_user']+":"+config['sis_pwd']+"@"+config['sis_host']+":"+config['sis_server_port']+"/"+config['sis_database']
 mysql_engine = create_engine(mysql_connection_string)
 
+print("Retrieving settings and creating database connections")
+
 # %%
 # First get the next school_id and school_detail id to be used.
 query_school_master_ids = """
@@ -263,7 +265,7 @@ school_ids = df_schools_sis_to_insert['school_id'].values
 schools_num = len(school_ids)
 print("Number of new schools to insert: {}".format(schools_num))
 
-if not df_school_master_all.empty:
+if schools_num > 0:
     ###############################################################################
     # Prepare the school_master DataFrame for all the schools using the template DataFrame
     ###############################################################################

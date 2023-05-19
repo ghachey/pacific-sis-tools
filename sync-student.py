@@ -449,7 +449,7 @@ else:
 
 # Load all data into the database
 if sis_load_data_to_sql == True:
-    with mysql_engine.begin() as conn:        
+    with mysql_engine.begin() as conn:
         print("Loading student_master with all final data")
         df_student_master_final.to_sql('student_master', con=conn, index=False, if_exists='append')
         print("Loading student_enrollment with all final data")
