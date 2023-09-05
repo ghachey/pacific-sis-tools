@@ -62,6 +62,7 @@ sis_export_data_to_excel = config['sis_export_data_to_excel']
 sis_load_data_to_sql = config['sis_load_data_to_sql']
 
 # Config
+data_directory = config['data_directory']
 country = config['country']
 datetime = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -431,7 +432,7 @@ if sis_export_data_to_excel == True:
     tables = ['release_number','school_master','block','dpdown_valuelist','fields_category','membership','permission_group','school_calendars','school_detail','student_enrollment_code','custom_fields','permission_category','role_permission','permission_subcategory']
 
     # Write to Excel for a final observation before a direct SQL insertion
-    with pd.ExcelWriter('data/'+country+'/sis-schools-to-insert-data.xlsx') as writer:
+    with pd.ExcelWriter(data_directory + '/' + country + '/sis-schools-to-insert-data.xlsx') as writer:
         # Testing with a single DF into a sheet
         #print("Saving {} with {} records to Excel".format(templates['school_master']['sql_table'], templates['school_master']['df'].shape[0]))                
         #templates['school_master']['df'].to_excel(writer, index=False, sheet_name=templates['school_master']['sql_table'])

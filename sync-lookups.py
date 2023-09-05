@@ -64,6 +64,7 @@ sis_tenant_id = config['sis_tenant_id']
 sis_user_guid = config['sis_user_guid']
 
 # Config
+data_directory = config['data_directory']
 country = config['country']
 datetime = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -371,7 +372,7 @@ next_id = dpdown_valuelist_next_id
 # List of invalid values (i.e. not found in EMIS)
 invalid_vals = str(tuple(vals)).replace(",)",")").replace("()","('')")
 
-filename = 'data/' + country + '/' + sis_field_name + '-sync-script.sql'
+filename = data_directory + '/' + country + '/' + sis_field_name + '-sync-script.sql'
 file = open(filename, "w") 
 
 file.write("USE {};\n\n".format(sis_database))

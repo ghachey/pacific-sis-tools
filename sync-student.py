@@ -60,6 +60,7 @@ sis_export_data_to_excel = config['sis_export_data_to_excel']
 sis_load_data_to_sql = config['sis_load_data_to_sql']
 
 # Config
+data_directory = config['data_directory']
 country = config['country']
 datetime = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -427,7 +428,7 @@ display(df_student_enrollment_final)
 if sis_export_data_to_excel == True:
     
     # Write to Excel the sample template data
-    with pd.ExcelWriter('data/'+country+'/sis-student-template-sample-data.xlsx') as writer:        
+    with pd.ExcelWriter(data_directory + '/' + country + '/sis-student-template-sample-data.xlsx') as writer:        
 
         for k,v in templates.items():
             print("Saving {} with {} records to Excel".format(v['sql_table'], v['df'].shape[0]))

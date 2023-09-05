@@ -19,4 +19,6 @@
     "sis_load_data_to_sql": false,
     "emis_lookup": "ethnicity",
     "emis_school_year": 2023
+    "emis_workbook_name": "workbook-name.xlsm",
+    "data_directory": "/mnt/h/Development/Pacific EMIS/repositories-data/pacific-sis-tools"
 }

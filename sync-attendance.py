@@ -48,6 +48,7 @@ with open('config.json', 'r') as file:
      config = json.load(file)
         
 # EMIS config
+data_directory = config['data_directory']
 emis_lookup = config['emis_lookup']
 emis_school_year = config['emis_school_year']
         
@@ -157,7 +158,7 @@ if schools_num > 0:
 if sis_export_data_to_excel == True:
     
     # Write to Excel the sample template data
-    with pd.ExcelWriter('data/'+country+'/sis-attendance-template-sample-data.xlsx') as writer:        
+    with pd.ExcelWriter(data_directory + '/' + country + '/sis-attendance-template-sample-data.xlsx') as writer:        
 
         for k,v in templates.items():
             print("Saving {} with {} records to Excel".format(v['sql_table'], v['df'].shape[0]))

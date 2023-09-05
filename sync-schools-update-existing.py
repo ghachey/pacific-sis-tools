@@ -57,6 +57,7 @@ sis_user_guid = config['sis_user_guid']
 sis_country = config['sis_country']
 
 # Config
+data_directory = config['data_directory']
 country = config['country']
 datetime = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -245,7 +246,7 @@ schools_sis_to_update[:3]
 # %%
 # Using the data prepared in previous cell produce the actual SQL script that will UPDATE everything to be in sync.
 print("Generating the updates scripts to sync EMIS schools to SIS schools")
-filename = 'data/' + country + '/schools-emis-to-sis-update-script.sql'
+filename = data_directory + '/' + country + '/schools-emis-to-sis-update-script.sql'
 file = open(filename, "w") 
 
 file.write("USE {};\n\n".format(sis_database))
